@@ -5,6 +5,7 @@
     instances: ["mongodb-SG", "Redis", "mysql", "rabbitmq", "catalogue", "user", "cart", "Shipping", "payment", "frontend"]
     image_id: ami-0220d79f3f480ecf5
     domine_name: uvraj.online
+    instances_action: create
   tasks:
     - name: create ec2 instances
       amazon.aws.ec2_instance:
@@ -16,6 +17,7 @@
           - roboshop-common
       loop: "{{ instances }}"
       register: ec2_output
+      when: instances_action == "create"
 
     # - name: print output
     #   debug:
@@ -36,6 +38,8 @@
         value: "{{ item.instances[0].private_ip_address }}"
         overwrite: true
       loop: "{{ ec2_output.results }}"
+      when: instances_action == "create"
+
 
     - name: create route53 record for frontend
       amazon.aws.route53:
@@ -47,5 +51,40 @@
         value: "{{ item.instances[0].public_ip_address }}"
         overwrite: true
       loop: "{{ ec2_output.results }}"
-      when: item.item == "frontend"
+      when: 
+        - item.item == "frontend"
+        - instances_action == "create"
+
+    - name: delete route53 records
+      amazon.aws.route53:
+        state: absent
+        zone: "{{ domine_name }}"
+        record: "{{ item.item}}.{{ domine_name }}"
+        type: A
+        ttl: 1
+      loop: "{{ instances }}"
+      when: instances_action == "delete"
+
+    - name: delete route53 records for frontend
+      amazon.aws.route53:
+        state: absent
+        zone: "{{ domine_name }}"
+        record: "{{ domine_name }}"
+        type: A
+        ttl: 1
+      loop: "{{ instances }}"
+      when:
+        - instances_action == "delete"
+        - item == "frontend"
+
+    - name: delete ec2 instances
+      amazon.aws.ec2_instance:
+        state: absent
+        name: "roboshop-{{ item }}"
+        wait: false
+      loop: "{{ instances }}"
+      when: instances_action == "delete"
+
+
+      
 
