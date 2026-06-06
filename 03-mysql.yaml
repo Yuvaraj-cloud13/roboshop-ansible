@@ -1,4 +1,4 @@
-- name: configration of redis server
+- name: configration of mysql server
   hosts: mysql
   become: yes
   tasks:
